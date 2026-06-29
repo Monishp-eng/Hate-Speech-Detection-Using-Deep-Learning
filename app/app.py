@@ -6,6 +6,7 @@ import os
 import io
 import csv
 import logging
+from contextlib import contextmanager
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
@@ -23,29 +24,30 @@ logger = logging.getLogger(__name__)
 predictor = None
 DATABASE = os.path.join(BASE_DIR, 'hate_speech.db')
 
-def get_db():
-    """Returns a SQLite connection with WAL mode enabled for concurrency and row factory configured."""
-    conn = sqlite3.connect(DATABASE)
+@contextmanager
+def db_session():
+    """Context manager to yield a SQLite connection and guarantee it is closed afterward."""
+    conn = sqlite3.connect(DATABASE, timeout=15.0)  # Add timeout to handle transient locks
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("PRAGMA journal_mode=WAL;")
-    except Exception as e:
-        logger.warning(f"Failed to set WAL mode: {e}")
-    return conn
+        yield conn
+    finally:
+        conn.close()
 
 def init_db():
     """Initializes the database schema using context managers."""
-    with get_db() as conn:
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS predictions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                text TEXT,
-                prediction TEXT,
-                confidence REAL,
-                timestamp DATETIME
-            )
-        ''')
-        conn.commit()
+    with db_session() as conn:
+        with conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS predictions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    text TEXT,
+                    prediction TEXT,
+                    confidence REAL,
+                    timestamp DATETIME
+                )
+            ''')
 
 def load_system():
     """Pre-loads the deep learning predictor model into memory."""
@@ -55,8 +57,6 @@ def load_system():
         logger.info("Flask App: Model and Tokenizer loaded successfully.")
     except Exception as e:
         logger.error(f"Flask App: Error loading model artifacts: {e}")
-        # In production, we don't want to crash import if artifacts are missing (e.g. during build tasks)
-        # but predictor will remain None, throwing a 500 error on /predict which is correct.
 
 # Initialize database and load system on import for WSGI servers
 init_db()
@@ -127,10 +127,10 @@ def predict():
     
     # Store in database using a secure context manager
     try:
-        with get_db() as conn:
-            conn.execute("INSERT INTO predictions (text, prediction, confidence, timestamp) VALUES (?, ?, ?, ?)",
-                         (text, result['prediction'], float(result['confidence']), datetime.now()))
-            conn.commit()
+        with db_session() as conn:
+            with conn:
+                conn.execute("INSERT INTO predictions (text, prediction, confidence, timestamp) VALUES (?, ?, ?, ?)",
+                             (text, result['prediction'], float(result['confidence']), datetime.now()))
     except Exception as e:
         logger.error(f"Database insertion failed: {e}")
     
@@ -143,7 +143,7 @@ def predict():
 @app.route('/analytics', methods=['GET'])
 def analytics():
     try:
-        with get_db() as conn:
+        with db_session() as conn:
             cursor = conn.cursor()
             
             # Total counts
@@ -172,28 +172,28 @@ def analytics():
 def history():
     if request.method == 'DELETE':
         try:
-            with get_db() as conn:
-                conn.execute("DELETE FROM predictions")
-                conn.commit()
+            with db_session() as conn:
+                with conn:
+                    conn.execute("DELETE FROM predictions")
             return jsonify({'message': 'History cleared successfully'})
         except Exception as e:
             logger.error(f"Failed to clear history: {e}")
             return jsonify({'error': 'Database error occurred while clearing history.'}), 500
 
     try:
-        with get_db() as conn:
+        with db_session() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT text, prediction, confidence, timestamp FROM predictions ORDER BY id DESC LIMIT 10")
             rows = cursor.fetchall()
         
-        history_list = []
-        for r in rows:
-            history_list.append({
-                'text': r['text'],
-                'prediction': r['prediction'],
-                'confidence': round(r['confidence'], 4),
-                'timestamp': r['timestamp']
-            })
+            history_list = []
+            for r in rows:
+                history_list.append({
+                    'text': r['text'],
+                    'prediction': r['prediction'],
+                    'confidence': round(r['confidence'], 4),
+                    'timestamp': r['timestamp']
+                })
             
         return jsonify({'history': history_list})
     except Exception as e:
@@ -203,18 +203,18 @@ def history():
 @app.route('/export', methods=['GET'])
 def export_csv():
     try:
-        with get_db() as conn:
+        with db_session() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id, text, prediction, confidence, timestamp FROM predictions ORDER BY id DESC")
             rows = cursor.fetchall()
 
-        si = io.StringIO()
-        cw = csv.writer(si)
-        cw.writerow(['ID', 'Text', 'Prediction', 'Confidence', 'Timestamp'])
-        for r in rows:
-            cw.writerow([r['id'], r['text'], r['prediction'], r['confidence'], r['timestamp']])
+            si = io.StringIO()
+            cw = csv.writer(si)
+            cw.writerow(['ID', 'Text', 'Prediction', 'Confidence', 'Timestamp'])
+            for r in rows:
+                cw.writerow([r['id'], r['text'], r['prediction'], r['confidence'], r['timestamp']])
         
-        output = si.getvalue()
+            output = si.getvalue()
         return Response(
             output,
             mimetype="text/csv",
@@ -226,4 +226,5 @@ def export_csv():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+
 
