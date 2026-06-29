@@ -10,6 +10,26 @@ const probList = document.getElementById('prob-list');
 
 let distChart = null;
 
+// Character counter setup
+const charCounter = document.createElement('div');
+charCounter.className = 'char-counter';
+charCounter.innerHTML = '<span id="char-num">0</span>/500';
+if (textArea && textArea.parentNode) {
+    textArea.parentNode.insertBefore(charCounter, textArea.nextSibling);
+    
+    // Listen for inputs
+    textArea.addEventListener('input', () => {
+        const count = textArea.value.length;
+        const numSpan = document.getElementById('char-num');
+        numSpan.textContent = count;
+        if (count > 500) {
+            charCounter.classList.add('limit-exceeded');
+        } else {
+            charCounter.classList.remove('limit-exceeded');
+        }
+    });
+}
+
 // Automatically run initial fetch on load
 window.addEventListener('DOMContentLoaded', () => {
     fetchAnalytics();
@@ -20,12 +40,18 @@ window.addEventListener('DOMContentLoaded', () => {
 function loadExample(element) {
     textArea.value = element.textContent;
     textArea.focus();
+    // Trigger input event to update character count
+    const event = new Event('input', { bubbles: true });
+    textArea.dispatchEvent(event);
 }
 
 // Clear UX and Text
 function clearAll() {
     textArea.value = '';
     textArea.focus();
+    // Trigger input event to update character count
+    const event = new Event('input', { bubbles: true });
+    textArea.dispatchEvent(event);
     hideResult();
     hideError();
 }
@@ -35,6 +61,11 @@ async function analyzeText() {
 
     if (!text) {
         showError("Please enter some text to analyze.");
+        return;
+    }
+
+    if (text.length > 500) {
+        showError("Input text exceeds the maximum limit of 500 characters.");
         return;
     }
 
@@ -76,11 +107,12 @@ function displayResult(data) {
     const probabilities = data.probabilities;
 
     predictionBadge.textContent = prediction.toUpperCase();
-    confidenceValue.textContent = (confidence * 100).toFixed(2) + '%';
+    confidenceValue.textContent = (confidence * 100).toFixed(1) + '%';
 
     predictionBadge.className = 'badge';
     resultSection.className = 'result-card';
 
+    // Set classes for badge styling
     if (prediction.includes("Hate Speech")) {
         predictionBadge.classList.add('hate');
         resultSection.classList.add('hate');
@@ -92,23 +124,35 @@ function displayResult(data) {
         resultSection.classList.add('neutral');
     } else {
         predictionBadge.classList.add('uncertain');
+        resultSection.classList.add('uncertain');
     }
 
+    // Render beautiful probability progress bars
     probList.innerHTML = '';
     for (const [cls, prob] of Object.entries(probabilities)) {
-        const li = document.createElement('li');
-        const spanClass = document.createElement('span');
-        spanClass.textContent = cls;
-        const spanProb = document.createElement('span');
-        spanProb.textContent = (parseFloat(prob) * 100).toFixed(2) + '%';
+        const percentage = (parseFloat(prob) * 100).toFixed(1);
         
-        li.appendChild(spanClass);
-        li.appendChild(spanProb);
+        let barColor = 'var(--color-uncertain)';
+        if (cls.includes("Hate")) barColor = 'var(--color-hate)';
+        else if (cls.includes("Offensive")) barColor = 'var(--color-offensive)';
+        else if (cls.includes("Neutral")) barColor = 'var(--color-neutral)';
+        
+        const li = document.createElement('li');
+        li.className = 'prob-item';
         
         if (cls === prediction) {
-            li.style.fontWeight = 'bold';
-            li.style.color = 'var(--text-main)';
+            li.classList.add('active-class');
         }
+        
+        li.innerHTML = `
+            <div class="prob-info">
+                <span class="prob-label">${cls}</span>
+                <span class="prob-percent">${percentage}%</span>
+            </div>
+            <div class="prob-track">
+                <div class="prob-bar" style="width: ${percentage}%; background: ${barColor};"></div>
+            </div>
+        `;
         
         probList.appendChild(li);
     }
@@ -127,7 +171,7 @@ async function fetchAnalytics() {
         if (data.error) throw new Error(data.error);
 
         document.getElementById('stat-total').textContent = data.total_predictions || 0;
-        document.getElementById('stat-avg').textContent = (data.average_confidence * 100).toFixed(2) + '%';
+        document.getElementById('stat-avg').textContent = (data.average_confidence * 100).toFixed(1) + '%';
 
         renderChart(data.distribution);
     } catch (e) {
@@ -138,14 +182,13 @@ async function fetchAnalytics() {
 function renderChart(distribution) {
     const ctx = document.getElementById('distributionChart').getContext('2d');
     
-    // Map colors to matches
     const labels = Object.keys(distribution);
     const counts = Object.values(distribution);
     const colors = labels.map(L => {
-        if(L.includes("Hate")) return '#f44336';
-        if(L.includes("Offensive")) return '#ff9800';
-        if(L.includes("Neutral")) return '#4CAF50';
-        return '#9e9e9e';
+        if(L.includes("Hate")) return '#ff4757';
+        if(L.includes("Offensive")) return '#ffa502';
+        if(L.includes("Neutral")) return '#2ed573';
+        return '#747d8c';
     });
 
     if (distChart) {
@@ -162,17 +205,24 @@ function renderChart(distribution) {
                     data: counts,
                     backgroundColor: colors,
                     borderWidth: 2,
-                    borderColor: '#2b2b2b'
+                    borderColor: 'var(--bg-input)'
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                cutout: '70%',
                 plugins: {
                     legend: {
-                        position: 'right',
+                        position: 'bottom',
                         labels: {
-                            color: '#b0b0b0'
+                            color: 'var(--text-muted)',
+                            font: {
+                                family: 'Plus Jakarta Sans',
+                                weight: '600',
+                                size: 11
+                            },
+                            padding: 15
                         }
                     }
                 }
@@ -190,16 +240,27 @@ async function fetchHistory() {
         const tbody = document.getElementById('history-body');
         tbody.innerHTML = '';
 
+        if (!data.history || data.history.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color: var(--text-muted);">No records found</td></tr>`;
+            return;
+        }
+
         data.history.forEach(item => {
             const tr = document.createElement('tr');
             
             // Truncate text for grid
             let truncText = item.text.length > 25 ? item.text.substring(0, 25) + "..." : item.text;
             
+            let badgeClass = 'history-badge';
+            if (item.prediction.includes("Hate")) badgeClass += ' hate';
+            else if (item.prediction.includes("Offensive")) badgeClass += ' offensive';
+            else if (item.prediction.includes("Neutral")) badgeClass += ' neutral';
+            else badgeClass += ' uncertain';
+
             tr.innerHTML = `
                 <td title="${item.text}">${truncText}</td>
-                <td><span style="font-weight:600">${item.prediction}</span></td>
-                <td>${(item.confidence * 100).toFixed(1)}%</td>
+                <td><span class="${badgeClass}">${item.prediction}</span></td>
+                <td style="font-weight: 700; text-align: right;">${(item.confidence * 100).toFixed(1)}%</td>
             `;
             tbody.appendChild(tr);
         });
@@ -220,7 +281,6 @@ async function clearHistory() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         
-        // Refresh views
         fetchAnalytics();
         fetchHistory();
     } catch (e) {
@@ -277,14 +337,13 @@ function toggleTheme() {
     const icon = document.getElementById('theme-icon');
     if (newTheme === 'dark') {
         icon.className = 'fas fa-sun';
-        if (distChart) distChart.options.datasets.borderColor = '#2b2b2b';
     } else {
         icon.className = 'fas fa-moon';
-        if (distChart) distChart.options.datasets.borderColor = '#ffffff';
     }
     
     if (distChart) {
-        distChart.options.plugins.legend.labels.color = newTheme === 'dark' ? '#b0b0b0' : '#666666';
+        distChart.data.datasets[0].borderColor = newTheme === 'dark' ? 'rgba(15, 20, 35, 0.8)' : 'rgba(255, 255, 255, 0.9)';
+        distChart.options.plugins.legend.labels.color = newTheme === 'dark' ? '#9ca3af' : '#475569';
         distChart.update();
     }
 }

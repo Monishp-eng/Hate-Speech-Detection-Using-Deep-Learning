@@ -586,6 +586,89 @@ ul#prob-list li:hover {
     background: rgba(255, 255, 255, 0.02);
 }
 
+/* Character Counter */
+.char-counter {
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: -0.75rem;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+.char-counter.limit-exceeded {
+    color: var(--color-hate);
+    animation: shake 0.3s ease-in-out;
+}
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+
+/* Probabilities Progress Bars */
+.prob-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem !important;
+    background: rgba(255, 255, 255, 0.02) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+.prob-item:hover {
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+.prob-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+.prob-label {
+    color: var(--text-main);
+}
+.prob-percent {
+    color: var(--text-muted);
+}
+.prob-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.prob-bar {
+    height: 100%;
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.prob-item.active-class {
+    border-color: rgba(59, 130, 246, 0.35) !important;
+    background: rgba(59, 130, 246, 0.06) !important;
+    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.05);
+}
+.prob-item.active-class .prob-label {
+    color: #3b82f6;
+}
+
+/* History Badges in Table */
+.history-badge {
+    padding: 0.25rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #fff;
+    display: inline-block;
+}
+.history-badge.hate { background: rgba(255, 71, 87, 0.15); color: #ff4757; border: 1px solid rgba(255, 71, 87, 0.25); }
+.history-badge.offensive { background: rgba(255, 165, 2, 0.15); color: #ffa502; border: 1px solid rgba(255, 165, 2, 0.25); }
+.history-badge.neutral { background: rgba(46, 213, 115, 0.15); color: #2ed573; border: 1px solid rgba(46, 213, 115, 0.25); }
+.history-badge.uncertain { background: rgba(164, 176, 190, 0.15); color: #a4b0be; border: 1px solid rgba(164, 176, 190, 0.25); }
+
 /* Hidden Utility */
 .hidden {
     display: none !important;
@@ -602,4 +685,5 @@ footer {
     padding-top: 1.5rem;
     font-weight: 500;
 }
+
 
