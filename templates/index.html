@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hate Speech Detection & Analytics</title>
+    <!-- Google Fonts for premium typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Connect to local CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+<body>
+    <div class="theme-toggle">
+        <button id="theme-btn" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+            <i class="fas fa-sun" id="theme-icon"></i>
+        </button>
+    </div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header>
+            <h1><i class="fas fa-shield-halved"></i> Hate Speech Detection</h1>
+            <p>Real-time deep learning classification with complete dashboard analytics.</p>
+        </header>
+
+        <!-- Main Workspace Grid -->
+        <div class="workspace-grid">
+            
+            <!-- Left Side: Inference Engine -->
+            <div class="left-col">
+                <main>
+                    <div class="input-group">
+                        <textarea id="text-input" placeholder="Type your sentence here..." rows="4"></textarea>
+                        <div class="controls">
+                            <button class="btn-primary" id="analyze-btn" onclick="analyzeText()">
+                                <span>Analyze</span>
+                                <i class="fas fa-bolt"></i>
+                            </button>
+                            <button class="btn-secondary" id="clear-btn" onclick="clearAll()">
+                                <span>Clear</span>
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <!-- Loading Spinner -->
+                            <div id="loading-spinner" class="spinner hidden"></div>
+                        </div>
+                    </div>
+
+                    <div class="examples">
+                        <span>Examples:</span>
+                        <button class="btn-example" onclick="loadExample(this)">I hate you so much</button>
+                        <button class="btn-example" onclick="loadExample(this)">You are an absolute idiot</button>
+                        <button class="btn-example" onclick="loadExample(this)">Have a wonderful day!</button>
+                    </div>
+
+                    <div id="error-box" class="error-msg hidden"></div>
+
+                    <!-- Results Section -->
+                    <div id="result-section" class="result-card hidden">
+                        <h2>Analysis Result</h2>
+                        <div class="prediction-row">
+                            <span class="label">Prediction:</span>
+                            <span id="prediction-badge" class="badge"></span>
+                        </div>
+                        <div class="prediction-row">
+                            <span class="label">Confidence:</span>
+                            <span id="confidence-value" class="value"></span>
+                        </div>
+
+                        <div class="probabilities">
+                            <h3>Class Probabilities</h3>
+                            <ul id="prob-list"></ul>
+                        </div>
+                    </div>
+                </main>
+            </div>
+
+            <!-- Right Side: Analytics Dashboard -->
+            <div class="right-col dashboard-wrapper">
+                <div class="dashboard-header">
+                    <h2><i class="fas fa-chart-pie"></i> Analytics Dashboard</h2>
+                    <a href="/export" class="btn-export" title="Export DB to CSV"><i class="fas fa-download"></i> CSV</a>
+                </div>
+                
+                <div class="stats-row">
+                    <div class="stat-box">
+                        <span class="stat-title">Total Predictions</span>
+                        <span class="stat-value" id="stat-total">0</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-title">Avg Confidence</span>
+                        <span class="stat-value" id="stat-avg">0.00%</span>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="distributionChart"></canvas>
+                </div>
+
+                <div class="history-container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="margin-bottom: 0;"><i class="fas fa-history"></i> Recent History</h3>
+                        <button onclick="clearHistory()" style="background-color: transparent; border: 1px solid #f44336; color: #f44336; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem;"><i class="fas fa-trash"></i> Clear</button>
+                    </div>
+                    <table id="history-table">
+                        <thead>
+                            <tr>
+                                <th>Preview</th>
+                                <th>Pred</th>
+                                <th>Conf</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Powered by PyTorch BiLSTM + Attention • SQLite Data Vault</p>
+        </footer>
+    </div>
+
+    <!-- Connect to local Custom Script -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
